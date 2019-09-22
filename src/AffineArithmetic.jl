@@ -113,7 +113,7 @@ let lastAffineIndex::Int = 0
         return [lastAffineIndex]
     end
 
-    global function addAffineIndex(indexes::Vector{AffineInd})
+    global function addAffineIndex(indexes::Vector{Int})
         lastAffineIndex += 1
         return vcat(indexes, lastAffineIndex)
     end
@@ -122,7 +122,7 @@ let lastAffineIndex::Int = 0
      # Given an array representing indexes of affine form, set lastAffineIndex to the last
      # index only if the last index is larger than lastAffineIndex
     =#
-    global function setLastAffineIndex(indexes::Vector{AffineInd})
+    global function setLastAffineIndex(indexes::Vector{Int})
         if(!isempty(indexes))
             m = last(indexes)
             if(m > lastAffineIndex)
@@ -143,18 +143,18 @@ end
  # - Affine indexes are always in sorted order from lowest to highest
  # - elts in Affine indexes are unique
 =#
-struct Affine <: Number
-    cvalue::AffineCoeff  # central value 
-    deviations::Vector{AffineCoeff}
-    indexes::Vector{AffineInd}
+struct Affine{T <: Real} <: Number
+    center::T  # central value 
+    deviations::Vector{T}
+    indexes::Vector{Int}
 
      #=
      # Creates an Affine with deviations
     =#
-    function Affine(v0::AffineCoeff, dev::Vector{AffineCoeff}, ind::Vector{AffineInd})
+    function Affine(v0::T, dev::Vector{T}, ind::Vector{Int})
         @assert length(ind) == length(dev)
         for ii in 1:(length(ind) - 1)
-            @assert ind[ii] <= ind[ii + 1]
+            @assert ind[ii] < ind[ii + 1]
         end
         new(v0, dev, setLastAffineIndex(ind))
     end  
@@ -164,28 +164,25 @@ end
  # Affine constructors for initialization
 =#
 Affine(a::Affine) = a
-Affine(X::Interval) = Affine(AffineCoeff(mid(X)),
-                             [AffineCoeff(radius(X))], addAffineIndex())
-Affine(x::Real) = Affine(AffineCoeff(x), Vector{AffineCoeff}(), Vector{AffineInd}())
+Affine(X::Interval{T}) where T <: Real = Affine(T(mid(X)), [T(radius(X))], addAffineIndex())
+Affine(x::T) where T <: Real = Affine(x, Vector{T}(), Vector{Int}())
 
-function Affine(x::Real, v::Vector{<:Real})
-    idx = Vector{AffineInd}(UndefInitializer(), length(v))
+function Affine(x::T, v::Vector{T}) where T <: Real
+    idx = Vector{T}(UndefInitializer(), length(v))
     for i = 1:length(v)
         idx[i] = makeAffineIndex()
     end
-    return Affine(AffineCoeff(x), AffineCoeff.(v), idx)
+    return Affine(x, v, idx)
 end
 
-function Affine(l::Real, h::Real)
+function Affine(l::T, h::T) where T <: Real
     @assert l ≤ h   
     if(l == h)
         return Affine(l)
     else
-        return Affine(AffineCoeff((l + h) /2), 
-                      [AffineCoeff((h - l) / 2)], addAffineIndex())
+        return Affine(T((l + h) /2), [T((h - l) / 2)], addAffineIndex())
     end
 end
-Affine(v0::Bool) = Affine(AffineCoeff(v0), Vector{AffineCoeff}(), Vector{AffineInd}())
 
  #=
  # Constructor that assigns new center to Affine
